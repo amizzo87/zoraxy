@@ -6,7 +6,6 @@ RUN mkdir -p /opt/zoraxy/source/ &&\
 
 RUN chmod -R 770 /opt/zoraxy/
 
-# If you build it yourself, you will need to add the src directory into the docker directory.
 COPY ../src/ /opt/zoraxy/source/
 
 WORKDIR /opt/zoraxy/source/
