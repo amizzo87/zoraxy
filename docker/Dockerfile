@@ -6,7 +6,7 @@ RUN mkdir -p /opt/zoraxy/source/ &&\
 
 RUN chmod -R 770 /opt/zoraxy/
 
-COPY ../src/ /opt/zoraxy/source/
+COPY ./src/ /opt/zoraxy/source/
 
 WORKDIR /opt/zoraxy/source/
 
