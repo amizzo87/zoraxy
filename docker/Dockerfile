@@ -18,7 +18,7 @@ RUN go mod tidy &&\
 RUN chmod 755 /usr/local/bin/zoraxy &&\
     chmod +x /usr/local/bin/zoraxy
 
-FROM docker.io/alpine:latest
+FROM docker.io/alpine:3.17
 
 # Install required packages including ZeroTier
 RUN apk add --no-cache bash netcat-openbsd sudo zerotier-one
