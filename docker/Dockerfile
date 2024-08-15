@@ -20,7 +20,8 @@ RUN chmod 755 /usr/local/bin/zoraxy &&\
 
 FROM docker.io/alpine:latest
 
-RUN apk add --no-cache bash netcat-openbsd sudo
+# Install required packages including ZeroTier
+RUN apk add --no-cache bash netcat-openbsd sudo zerotier-one
 
 COPY --from=build /usr/local/bin/zoraxy /usr/local/bin/zoraxy
 COPY --from=build /opt/zoraxy/config/ /opt/zoraxy/config
@@ -43,6 +44,20 @@ ENV WEBROOT="./www"
 ENV ZTAUTH="''"
 ENV ZTPORT="9993"
 
-ENTRYPOINT "zoraxy" "-docker=true" "-autorenew=${AUTORENEW}" "-earlyrenew=${EARLYRENEW}" "-fastgeoip=${FASTGEOIP}" "-mdns=${MDNS}" "-mdnsname=${MDNSNAME}" "-noauth=${NOAUTH}" "-port=:${PORT}" "-sshlb=${SSHLB}" "-version=${VERSION}" "-webfm=${WEBFM}" "-webroot=${WEBROOT}" "-ztauth=${ZTAUTH}" "-ztport=${ZTPORT}"
+# Expose ports
+EXPOSE ${PORT}
+EXPOSE ${ZTPORT}
+
+# Create a startup script
+RUN echo '#!/bin/sh' > /start.sh && \
+    echo 'if [ ! -z "$ZTAUTH" ] && [ "$ZTAUTH" != "'\''" ]; then' >> /start.sh && \
+    echo '    echo "$ZTAUTH" > /var/lib/zerotier-one/authtoken.secret' >> /start.sh && \
+    echo '    chmod 0600 /var/lib/zerotier-one/authtoken.secret' >> /start.sh && \
+    echo 'fi' >> /start.sh && \
+    echo 'zerotier-one -d' >> /start.sh && \
+    echo 'exec zoraxy -docker=true -autorenew=${AUTORENEW} -earlyrenew=${EARLYRENEW} -fastgeoip=${FASTGEOIP} -mdns=${MDNS} -mdnsname=${MDNSNAME} -noauth=${NOAUTH} -port=:${PORT} -sshlb=${SSHLB} -version=${VERSION} -webfm=${WEBFM} -webroot=${WEBROOT} -ztauth=${ZTAUTH} -ztport=${ZTPORT}' >> /start.sh && \
+    chmod +x /start.sh
+
+ENTRYPOINT ["/start.sh"]
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 CMD nc -vz 127.0.0.1 $PORT || exit 1
