@@ -6,6 +6,7 @@ RUN mkdir -p /opt/zoraxy/source/ &&\
 
 RUN chmod -R 770 /opt/zoraxy/
 
+# If you build it yourself, you will need to add the src directory into the docker directory.
 COPY ./src/ /opt/zoraxy/source/
 
 WORKDIR /opt/zoraxy/source/
@@ -19,8 +20,11 @@ RUN chmod 755 /usr/local/bin/zoraxy &&\
 
 FROM docker.io/alpine:3.17
 
-# Install required packages including ZeroTier
-RUN apk add --no-cache bash netcat-openbsd sudo zerotier-one
+# Install required packages including ZeroTier and dependencies for Twingate
+RUN apk add --no-cache bash netcat-openbsd sudo zerotier-one curl jq
+
+# Install Twingate
+RUN curl -s https://binaries.twingate.com/client/linux/install.sh | bash
 
 COPY --from=build /usr/local/bin/zoraxy /usr/local/bin/zoraxy
 COPY --from=build /opt/zoraxy/config/ /opt/zoraxy/config
@@ -43,6 +47,8 @@ ENV WEBROOT="./www"
 ENV ZTAUTH="''"
 ENV ZTPORT="9993"
 ENV ZTNETWORK=""
+ENV TWINGATE_URL=""
+ENV TWINGATE_ACCESS_TOKEN=""
 
 # Expose ports
 EXPOSE ${PORT}
@@ -58,6 +64,10 @@ RUN echo '#!/bin/sh' > /start.sh && \
     echo 'sleep 5' >> /start.sh && \
     echo 'if [ ! -z "$ZTNETWORK" ]; then' >> /start.sh && \
     echo '    zerotier-cli join $ZTNETWORK' >> /start.sh && \
+    echo 'fi' >> /start.sh && \
+    echo 'if [ ! -z "$TWINGATE_URL" ] && [ ! -z "$TWINGATE_ACCESS_TOKEN" ]; then' >> /start.sh && \
+    echo '    twingate setup --headless --remote-network-id $TWINGATE_URL --access-token $TWINGATE_ACCESS_TOKEN' >> /start.sh && \
+    echo '    twingate start' >> /start.sh && \
     echo 'fi' >> /start.sh && \
     echo 'exec zoraxy -docker=true -autorenew=${AUTORENEW} -earlyrenew=${EARLYRENEW} -fastgeoip=${FASTGEOIP} -mdns=${MDNS} -mdnsname=${MDNSNAME} -noauth=${NOAUTH} -port=:${PORT} -sshlb=${SSHLB} -version=${VERSION} -webfm=${WEBFM} -webroot=${WEBROOT} -ztauth=${ZTAUTH} -ztport=${ZTPORT}' >> /start.sh && \
     chmod +x /start.sh
