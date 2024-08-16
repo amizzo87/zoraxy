@@ -1,4 +1,4 @@
-FROM docker.io/golang:alpine AS build
+FROM docker.io/golang:1.23-bookworm AS build
 
 RUN mkdir -p /opt/zoraxy/source/ &&\
     mkdir -p /opt/zoraxy/config/ &&\
@@ -15,15 +15,26 @@ RUN go mod tidy &&\
 
 RUN chmod +x /usr/local/bin/zoraxy
 
-FROM archlinux:base-devel
+FROM debian:bookworm-slim
 
-# Update the system and install required packages
-RUN pacman -Syu --noconfirm && \
-    pacman -S --noconfirm bash sudo zerotier-one curl jq openbsd-netcat && \
-    pacman -Scc --noconfirm
+# Install required packages
+RUN apt-get update && apt-get install -y \
+    curl \
+    jq \
+    netcat-openbsd \
+    sudo \
+    gnupg \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install ZeroTier
+RUN curl -s https://install.zerotier.com | bash || (echo "Failed to install ZeroTier" && exit 1)
 
 # Install Twingate
-RUN curl -s https://binaries.twingate.com/client/linux/install.sh | bash
+RUN curl -s https://binaries.twingate.com/client/linux/install.sh | bash || (echo "Failed to install Twingate" && exit 1)
+
+# Verify installations
+RUN zerotier-cli -v && twingate --version
 
 COPY --from=build /usr/local/bin/zoraxy /usr/local/bin/zoraxy
 COPY --from=build /opt/zoraxy/config/ /opt/zoraxy/config
@@ -59,7 +70,8 @@ RUN echo '#!/bin/bash' > /start.sh && \
     echo '    echo "$TWINGATE_TOKEN" > "$TWINGATE_TOKEN_FILE"' >> /start.sh && \
     echo 'fi' >> /start.sh && \
     echo 'if [ -f "$TWINGATE_TOKEN_FILE" ]; then' >> /start.sh && \
-    echo '    twingate setup --headless --service-key "$TWINGATE_TOKEN_FILE"' >> /start.sh && \
+    echo '    twingate setup --headless "$TWINGATE_TOKEN_FILE"' >> /start.sh && \
+    echo '    twingate start' >> /start.sh && \
     echo 'fi' >> /start.sh && \
     echo 'zerotier-one -d' >> /start.sh && \
     echo 'sleep 5' >> /start.sh && \
