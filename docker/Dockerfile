@@ -4,8 +4,6 @@ RUN mkdir -p /opt/zoraxy/source/ &&\
     mkdir -p /opt/zoraxy/config/ &&\
     mkdir -p /usr/local/bin/
 
-RUN chmod -R 770 /opt/zoraxy/
-
 # If you build it yourself, you will need to add the src directory into the docker directory.
 COPY ./src/ /opt/zoraxy/source/
 
@@ -15,8 +13,7 @@ RUN go mod tidy &&\
     go build -o /usr/local/bin/zoraxy &&\
     rm -r /opt/zoraxy/source/
 
-RUN chmod 755 /usr/local/bin/zoraxy &&\
-    chmod +x /usr/local/bin/zoraxy
+RUN chmod +x /usr/local/bin/zoraxy
 
 FROM archlinux:base-devel
 
@@ -49,8 +46,7 @@ ENV WEBROOT="./www"
 ENV ZTAUTH="''"
 ENV ZTPORT="9993"
 ENV ZTNETWORK=""
-ENV TWINGATE_URL=""
-ENV TWINGATE_ACCESS_TOKEN=""
+ENV TWINGATE_TOKEN=""
 
 # Expose ports
 EXPOSE ${PORT}
@@ -58,18 +54,17 @@ EXPOSE ${ZTPORT}
 
 # Create a startup script
 RUN echo '#!/bin/bash' > /start.sh && \
-    echo 'if [ ! -z "$ZTAUTH" ] && [ "$ZTAUTH" != "'\''" ]; then' >> /start.sh && \
-    echo '    echo "$ZTAUTH" > /var/lib/zerotier-one/authtoken.secret' >> /start.sh && \
-    echo '    chmod 0600 /var/lib/zerotier-one/authtoken.secret' >> /start.sh && \
+    echo 'TWINGATE_TOKEN_FILE="/opt/zoraxy/config/twingate_token.json"' >> /start.sh && \
+    echo 'if [ ! -f "$TWINGATE_TOKEN_FILE" ] && [ ! -z "$TWINGATE_TOKEN" ]; then' >> /start.sh && \
+    echo '    echo "$TWINGATE_TOKEN" > "$TWINGATE_TOKEN_FILE"' >> /start.sh && \
+    echo 'fi' >> /start.sh && \
+    echo 'if [ -f "$TWINGATE_TOKEN_FILE" ]; then' >> /start.sh && \
+    echo '    twingate setup --headless --service-key "$TWINGATE_TOKEN_FILE"' >> /start.sh && \
     echo 'fi' >> /start.sh && \
     echo 'zerotier-one -d' >> /start.sh && \
     echo 'sleep 5' >> /start.sh && \
     echo 'if [ ! -z "$ZTNETWORK" ]; then' >> /start.sh && \
     echo '    zerotier-cli join $ZTNETWORK' >> /start.sh && \
-    echo 'fi' >> /start.sh && \
-    echo 'if [ ! -z "$TWINGATE_URL" ] && [ ! -z "$TWINGATE_ACCESS_TOKEN" ]; then' >> /start.sh && \
-    echo '    twingate setup --headless --remote-network-id $TWINGATE_URL --access-token $TWINGATE_ACCESS_TOKEN' >> /start.sh && \
-    echo '    twingate start' >> /start.sh && \
     echo 'fi' >> /start.sh && \
     echo 'exec zoraxy -docker=true -autorenew=${AUTORENEW} -earlyrenew=${EARLYRENEW} -fastgeoip=${FASTGEOIP} -mdns=${MDNS} -mdnsname=${MDNSNAME} -noauth=${NOAUTH} -port=:${PORT} -sshlb=${SSHLB} -version=${VERSION} -webfm=${WEBFM} -webroot=${WEBROOT} -ztauth=${ZTAUTH} -ztport=${ZTPORT}' >> /start.sh && \
     chmod +x /start.sh
