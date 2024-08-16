@@ -18,10 +18,12 @@ RUN go mod tidy &&\
 RUN chmod 755 /usr/local/bin/zoraxy &&\
     chmod +x /usr/local/bin/zoraxy
 
-FROM docker.io/alpine:3.17
+FROM archlinux:base-devel
 
-# Install required packages including ZeroTier and dependencies for Twingate
-RUN apk add --no-cache bash netcat-openbsd sudo zerotier-one curl jq
+# Update the system and install required packages
+RUN pacman -Syu --noconfirm && \
+    pacman -S --noconfirm bash sudo zerotier-one curl jq openbsd-netcat && \
+    pacman -Scc --noconfirm
 
 # Install Twingate
 RUN curl -s https://binaries.twingate.com/client/linux/install.sh | bash
@@ -55,7 +57,7 @@ EXPOSE ${PORT}
 EXPOSE ${ZTPORT}
 
 # Create a startup script
-RUN echo '#!/bin/sh' > /start.sh && \
+RUN echo '#!/bin/bash' > /start.sh && \
     echo 'if [ ! -z "$ZTAUTH" ] && [ "$ZTAUTH" != "'\''" ]; then' >> /start.sh && \
     echo '    echo "$ZTAUTH" > /var/lib/zerotier-one/authtoken.secret' >> /start.sh && \
     echo '    chmod 0600 /var/lib/zerotier-one/authtoken.secret' >> /start.sh && \
